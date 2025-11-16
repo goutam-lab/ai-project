@@ -1,0 +1,19 @@
+# AI and Machine Learning
+scikit-learn==1.3.2
+pandas==2.1.4
+numpy==1.26.2
+joblib==1.3.2
+
+# Computer Vision
+Pillow==10.1.0
+opencv-python==4.8.1.78
+
+# NLP
+pytesseract==0.3.10
+
+# Time Series
+prophet==1.1.5
+
+# Deep Learning (Optional)
+# tensorflow==2.15.0
+# keras==2.15.0
