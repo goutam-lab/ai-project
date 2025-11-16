@@ -23,7 +23,7 @@ app = FastAPI(
 # Configure CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3309", "http://127.0.0.1:3306"],  # Add your frontend URLs
+    allow_origins=["http://localhost:8080", "http://localhost:5173", "http://localhost:3309", "http://127.0.0.1:3306"], # ⬅️ ADDED PORT 8080
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -47,33 +47,33 @@ app.include_router(admin_counterfeit.router)
 app.include_router(kaggle_data.router)
 app.include_router(ai_predictions.router)
 
-# ✅ --- Create Demo User on Startup ---
-@app.on_event("startup")
-def create_demo_user():
-    from . import models  # local import to avoid circular dependency
-    db = SessionLocal()
-    try:
-        existing_user = db.query(models.User).filter_by(email="user@pharma.com").first()
-        if not existing_user:
-            demo_user = models.User(
-                email="user@pharma.com",
-                username="pharma_user",
-                hashed_password=get_password_hash("User@123"),
-                company_name="PharmaCorp Inc.",
-                user_type="user",
-                is_active=True
-            )
-            db.add(demo_user)
-            db.commit()
-            db.refresh(demo_user)
-            print(f"   ✓ Created demo user: {demo_user.username}")
-        else:
-            print(f"   ⚠️ Demo user already exists: {existing_user.username}")
-    except Exception as e:
-        print(f"   ❌ Error creating demo user: {e}")
-        db.rollback()
-    finally:
-        db.close()
+# ✅ --- Create Demo User on Startup (COMMENTED OUT TO PREVENT CONFLICT) ---
+# @app.on_event("startup")
+# def create_demo_user():
+#     from . import models  # local import to avoid circular dependency
+#     db = SessionLocal()
+#     try:
+#         existing_user = db.query(models.User).filter_by(email="user@pharma.com").first()
+#         if not existing_user:
+#             demo_user = models.User(
+#                 email="user@pharma.com",
+#                 username="pharma_user",
+#                 hashed_password=get_password_hash("User@123"),
+#                 company_name="PharmaCorp Inc.",
+#                 user_type="user",
+#                 is_active=True
+#             )
+#             db.add(demo_user)
+#             db.commit()
+#             db.refresh(demo_user)
+#             print(f"   ✓ Created demo user: {demo_user.username}")
+#         else:
+#             print(f"   ⚠️ Demo user already exists: {existing_user.username}")
+#     except Exception as e:
+#         print(f"   ❌ Error creating demo user: {e}")
+#         db.rollback()
+#     finally:
+#         db.close()
 # ✅ --- End Demo User Block ---
 
 

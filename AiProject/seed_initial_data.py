@@ -1,254 +1,217 @@
-from app.database import SessionLocal
+import sys
+import os
+from datetime import datetime, timedelta
+from sqlalchemy.orm import Session
+from sqlalchemy.exc import IntegrityError
+from app.database import SessionLocal, engine
 from app import models
 from app.auth import get_password_hash
-from datetime import datetime, timedelta
+from app.models import (
+    User, Product, SensorData, Alert, AIModel, IoTSensor, SystemConfig
+)
 
+# Add app directory to path
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 def seed_data():
+    """Seed the database with initial data"""
     db = SessionLocal()
-    
+    print("Seeding initial data...\n")
+
     try:
-        print("Seeding initial data...")
+        # 1. --- Create Demo Users ---
+        print("1. Creating demo users...")
         
-        # 1. Create demo users
-        print("\n1. Creating demo users...")
-        demo_user = models.User(
-            email="user@pharma.com",
-            username="pharma_user",
-            hashed_password=get_password_hash("User@123"),
-            company_name="PharmaCorp Inc.",
-            user_type="user",
-            is_active=True
-        )
-        db.add(demo_user)
-        db.commit()
-        db.refresh(demo_user)
-        print(f"   ✓ Created user: {demo_user.username}")
-        
-        # 2. Create AI Models
-        print("\n2. Creating AI Models...")
-        
-        cv_model = models.AIModel(
-            model_name="Counterfeit Detection CV",
-            model_type="computer_vision",
-            version="1.0.0",
-            accuracy=95.5,
-            status="active",
-            training_data_count=1000,
-            last_trained=datetime.utcnow()
-        )
-        
-        nlp_model = models.AIModel(
-            model_name="Label Verification NLP",
-            model_type="nlp",
-            version="1.0.0",
-            accuracy=92.3,
-            status="active",
-            training_data_count=800,
-            last_trained=datetime.utcnow()
-        )
-        
-        ml_model = models.AIModel(
-            model_name="Quality Degradation Predictor",
-            model_type="ml_prediction",
-            version="1.0.0",
-            accuracy=88.7,
-            status="active",
-            training_data_count=1500,
-            last_trained=datetime.utcnow()
-        )
-        
-        db.add_all([cv_model, nlp_model, ml_model])
-        db.commit()
-        print(f"   ✓ Created 3 AI models")
-        
-        # 3. Create System Configurations
-        print("\n3. Creating system configurations...")
-        
-        configs = [
-            models.SystemConfig(
-                config_key="temperature_threshold_min",
-                config_value="2.0",
-                description="Minimum safe temperature in Celsius"
-            ),
-            models.SystemConfig(
-                config_key="temperature_threshold_max",
-                config_value="8.0",
-                description="Maximum safe temperature in Celsius"
-            ),
-            models.SystemConfig(
-                config_key="humidity_threshold_min",
-                config_value="45.0",
-                description="Minimum safe humidity percentage"
-            ),
-            models.SystemConfig(
-                config_key="humidity_threshold_max",
-                config_value="75.0",
-                description="Maximum safe humidity percentage"
-            ),
-            models.SystemConfig(
-                config_key="alert_email_enabled",
-                config_value="true",
-                description="Enable email alerts"
-            ),
-            models.SystemConfig(
-                config_key="alert_sms_enabled",
-                config_value="true",
-                description="Enable SMS alerts"
+        # --- THIS IS THE FIX ---
+        # Check if user already exists
+        existing_user = db.query(User).filter_by(email="user@pharma.com").first()
+        if not existing_user:
+            demo_user = User(
+                email="user@pharma.com",
+                username="pharma_user",
+                hashed_password=get_password_hash("User@123"),
+                company_name="PharmaCorp Inc.",
+                user_type="user",
+                is_active=True
             )
+            db.add(demo_user)
+            db.commit()
+            db.refresh(demo_user)
+            print("   ✓ Created demo user 'pharma_user'")
+        else:
+            demo_user = existing_user
+            print("   ⚠️  Demo user 'pharma_user' already exists, skipping.")
+        # --- END OF FIX ---
+
+        # 2. --- Create AI Models ---
+        print("\n2. Seeding AI Models...")
+        
+        models_to_seed = [
+            {'model_name': 'Quality Degradation Predictor', 'model_type': 'ml_prediction', 'version': '1.0.0', 'status': 'active', 'accuracy': 88.5},
+            {'model_name': 'Sensor Anomaly Detector', 'model_type': 'anomaly_detection', 'version': '1.0.0', 'status': 'active', 'accuracy': 95.0},
+            {'model_name': 'Packaging CV Analyzer', 'model_type': 'computer_vision', 'version': '1.0.0', 'status': 'active', 'accuracy': 92.0},
+            {'model_name': 'Label NLP Validator', 'model_type': 'nlp', 'version': '1.0.0', 'status': 'active', 'accuracy': 99.0}
+        ]
+
+        for model_data in models_to_seed:
+            existing_model = db.query(AIModel).filter_by(model_name=model_data['model_name']).first()
+            if not existing_model:
+                model = AIModel(**model_data)
+                db.add(model)
+        
+        db.commit()
+        print("   ✓ AI models seeded.")
+
+        # 3. --- Create System Config ---
+        print("\n3. Seeding System Configuration...")
+        
+        configs_to_seed = [
+            {'config_key': 'temperature_threshold_max', 'config_value': '25.0', 'description': 'Maximum safe temperature in °C'},
+            {'config_key': 'temperature_threshold_min', 'config_value': '15.0', 'description': 'Minimum safe temperature in °C'},
+            {'config_key': 'humidity_threshold_max', 'config_value': '60.0', 'description': 'Maximum safe humidity in %'},
+            {'config_key': 'humidity_threshold_min', 'config_value': '40.0', 'description': 'Minimum safe humidity in %'}
         ]
         
-        db.add_all(configs)
+        for config_data in configs_to_seed:
+            existing_config = db.query(SystemConfig).filter_by(config_key=config_data['config_key']).first()
+            if not existing_config:
+                config = SystemConfig(**config_data)
+                db.add(config)
+                
         db.commit()
-        print(f"   ✓ Created {len(configs)} system configurations")
+        print("   ✓ System configuration seeded.")
+
+        # 4. --- Create IoT Sensors ---
+        print("\n4. Seeding IoT Sensors...")
         
-        # 4. Create IoT Sensors
-        print("\n4. Creating IoT sensors...")
-        
-        sensors = [
-            models.IoTSensor(
-                sensor_id="TEMP_001",
-                sensor_type="temperature",
-                location="Warehouse A - Section 1",
-                status="active",
-                calibration_date=datetime.utcnow()
-            ),
-            models.IoTSensor(
-                sensor_id="HUMID_001",
-                sensor_type="humidity",
-                location="Warehouse A - Section 1",
-                status="active",
-                calibration_date=datetime.utcnow()
-            ),
-            models.IoTSensor(
-                sensor_id="TEMP_002",
-                sensor_type="temperature",
-                location="Warehouse B - Cold Storage",
-                status="active",
-                calibration_date=datetime.utcnow()
-            ),
-            models.IoTSensor(
-                sensor_id="LIGHT_001",
-                sensor_type="light",
-                location="Warehouse A - Section 2",
-                status="active",
-                calibration_date=datetime.utcnow()
-            )
+        sensors_to_seed = [
+            {'sensor_id': 'TEMP_001', 'sensor_type': 'temperature', 'location': 'Warehouse A', 'status': 'active'},
+            {'sensor_id': 'HUM_001', 'sensor_type': 'humidity', 'location': 'Warehouse A', 'status': 'active'},
+            {'sensor_id': 'TEMP_002', 'sensor_type': 'temperature', 'location': 'Warehouse B', 'status': 'maintenance'},
+            {'sensor_id': 'HUM_002', 'sensor_type': 'humidity', 'location': 'Warehouse B', 'status': 'active'},
+            {'sensor_id': 'LIGHT_001', 'sensor_type': 'light', 'location': 'Cold Storage 1', 'status': 'active'}
         ]
-        
-        db.add_all(sensors)
+
+        for sensor_data in sensors_to_seed:
+            existing_sensor = db.query(IoTSensor).filter_by(sensor_id=sensor_data['sensor_id']).first()
+            if not existing_sensor:
+                sensor = IoTSensor(**sensor_data)
+                db.add(sensor)
+                
         db.commit()
-        print(f"   ✓ Created {len(sensors)} IoT sensors")
+        print("   ✓ IoT sensors seeded.")
+
+        # 5. --- Create Demo Products ---
+        print("\n5. Seeding Demo Products...")
         
-        # 5. Create demo products
-        print("\n5. Creating demo products...")
-        
-        products = [
-            models.Product(
-                name="Aspirin 500mg",
-                batch_number="ASP2024001",
-                manufacturing_date=datetime.utcnow() - timedelta(days=30),
-                expiry_date=datetime.utcnow() + timedelta(days=700),
-                current_temperature=5.2,
-                current_humidity=60.5,
-                status="Safe & Verified",
-                location="Warehouse A - Section 1",
-                owner_id=demo_user.id
-            ),
-            models.Product(
-                name="Paracetamol 650mg",
-                batch_number="PAR2024002",
-                manufacturing_date=datetime.utcnow() - timedelta(days=45),
-                expiry_date=datetime.utcnow() + timedelta(days=685),
-                current_temperature=6.1,
-                current_humidity=58.2,
-                status="Safe & Verified",
-                location="Warehouse A - Section 2",
-                owner_id=demo_user.id
-            ),
-            models.Product(
-                name="Vaccine XYZ",
-                batch_number="VAC2024003",
-                manufacturing_date=datetime.utcnow() - timedelta(days=10),
-                expiry_date=datetime.utcnow() + timedelta(days=355),
-                current_temperature=3.8,
-                current_humidity=62.0,
-                status="Safe & Verified",
-                location="Warehouse B - Cold Storage",
-                owner_id=demo_user.id
-            )
+        products_to_seed = [
+            {
+                'name': 'Aspirin 81mg',
+                'batch_number': 'A-1001',
+                'manufacturing_date': datetime.now() - timedelta(days=180),
+                'expiry_date': datetime.now() + timedelta(days=540),
+                'current_temperature': 20.5,
+                'current_humidity': 55.2,
+                'status': 'Safe & Verified',
+                'location': 'Warehouse A',
+                'owner_id': demo_user.id
+            },
+            {
+                'name': 'Metformin 500mg',
+                'batch_number': 'M-2002',
+                'manufacturing_date': datetime.now() - timedelta(days=90),
+                'expiry_date': datetime.now() + timedelta(days=630),
+                'current_temperature': 28.0,
+                'current_humidity': 65.0,
+                'status': 'Warning',
+                'location': 'Warehouse B',
+                'owner_id': demo_user.id
+            },
+            {
+                'name': 'Atorvastatin 20mg',
+                'batch_number': 'AT-3003',
+                'manufacturing_date': datetime.now() - timedelta(days=30),
+                'expiry_date': datetime.now() + timedelta(days=700),
+                'current_temperature': 22.0,
+                'current_humidity': 50.0,
+                'status': 'Safe & Verified',
+                'location': 'Cold Storage 1',
+                'owner_id': demo_user.id
+            }
         ]
+
+        product_objects = []
+        for prod_data in products_to_seed:
+            existing_prod = db.query(Product).filter_by(batch_number=prod_data['batch_number']).first()
+            if not existing_prod:
+                product = Product(**prod_data)
+                db.add(product)
+                product_objects.append(product)
+            else:
+                product_objects.append(existing_prod)
         
-        db.add_all(products)
         db.commit()
-        print(f"   ✓ Created {len(products)} demo products")
+        for prod in product_objects:
+            db.refresh(prod)
+            
+        print("   ✓ Demo products seeded.")
+
+        # 6. --- Create Sensor Data ---
+        print("\n6. Seeding Sensor Data...")
         
-        # 6. Create sample sensor data
-        print("\n6. Creating sample sensor data...")
+        if product_objects:
+            sensor_readings = [
+                {'product_id': product_objects[0].id, 'temperature': 20.5, 'humidity': 55.2, 'light_exposure': 100.0, 'vibration': 0.1},
+                {'product_id': product_objects[0].id, 'temperature': 20.6, 'humidity': 55.0, 'light_exposure': 100.0, 'vibration': 0.1},
+                {'product_id': product_objects[1].id, 'temperature': 28.0, 'humidity': 65.0, 'light_exposure': 150.0, 'vibration': 0.2},
+                {'product_id': product_objects[1].id, 'temperature': 28.1, 'humidity': 65.5, 'light_exposure': 150.0, 'vibration': 0.2},
+                {'product_id': product_objects[2].id, 'temperature': 22.0, 'humidity': 50.0, 'light_exposure': 50.0, 'vibration': 0.05}
+            ]
+            
+            for reading_data in sensor_readings:
+                # Check if a reading for that product at that temp exists
+                existing_reading = db.query(SensorData).filter_by(product_id=reading_data['product_id'], temperature=reading_data['temperature']).first()
+                if not existing_reading:
+                    reading = SensorData(**reading_data)
+                    db.add(reading)
+            
+            db.commit()
+            print("   ✓ Sensor data seeded.")
+        else:
+            print("   ⚠️  No products found, skipping sensor data.")
+
+        # 7. --- Create Alerts ---
+        print("\n7. Seeding Alerts...")
         
-        sensor_readings = []
-        for product in products:
-            for i in range(10):
-                reading = models.SensorData(
-                    product_id=product.id,
-                    temperature=product.current_temperature + (i * 0.1 - 0.5),
-                    humidity=product.current_humidity + (i * 0.2 - 1.0),
-                    light_exposure=50.0 + (i * 2),
-                    vibration=0.5 + (i * 0.05),
-                    timestamp=datetime.utcnow() - timedelta(hours=10-i)
-                )
-                sensor_readings.append(reading)
-        
-        db.add_all(sensor_readings)
-        db.commit()
-        print(f"   ✓ Created {len(sensor_readings)} sensor readings")
-        
-        # 7. Create system metrics
-        print("\n7. Creating system metrics...")
-        
-        metrics = [
-            models.SystemMetrics(
-                metric_name="cpu_usage",
-                metric_value=45.5,
-                unit="percent"
-            ),
-            models.SystemMetrics(
-                metric_name="memory_usage",
-                metric_value=62.3,
-                unit="percent"
-            ),
-            models.SystemMetrics(
-                metric_name="api_response_time",
-                metric_value=125.5,
-                unit="milliseconds"
+        if product_objects and len(product_objects) > 1:
+            alert = Alert(
+                user_id=demo_user.id,
+                product_id=product_objects[1].id,
+                alert_type="temperature",
+                severity="high",
+                message="Temperature exceeded threshold (28.0°C).",
+                is_read=False
             )
-        ]
-        
-        db.add_all(metrics)
-        db.commit()
-        print(f"   ✓ Created {len(metrics)} system metrics")
-        
-        print("\n✅ Initial data seeding completed successfully!")
-        print("\n📊 Summary:")
-        print(f"   - Users: 1 (+ admin)")
-        print(f"   - AI Models: 3")
-        print(f"   - System Configs: {len(configs)}")
-        print(f"   - IoT Sensors: {len(sensors)}")
-        print(f"   - Products: {len(products)}")
-        print(f"   - Sensor Readings: {len(sensor_readings)}")
-        print(f"   - System Metrics: {len(metrics)}")
-        
-        print("\n🔐 Login Credentials:")
-        print("   Admin:")
-        print("     Username: admin")
-        print("     Password: Admin@123")
-        print("   User:")
-        print("     Username: pharma_user")
-        print("     Password: User@123")
-        
-    except Exception as e:
-        print(f"❌ Error seeding data: {e}")
+            
+            existing_alert = db.query(Alert).filter_by(product_id=alert.product_id, alert_type=alert.alert_type).first()
+            if not existing_alert:
+                db.add(alert)
+                db.commit()
+            
+            print("   ✓ Alerts seeded.")
+        else:
+            print("   ⚠️  Not enough products, skipping alerts.")
+
+        print("\n" + "="*30)
+        print("✅ SEEDING COMPLETE!")
+        print("="*30)
+
+    except IntegrityError as e:
         db.rollback()
+        print(f"❌ Error seeding data: {e}")
+    except Exception as e:
+        db.rollback()
+        print(f"❌ An unexpected error occurred: {e}")
     finally:
         db.close()
 

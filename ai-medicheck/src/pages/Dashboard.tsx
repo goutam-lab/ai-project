@@ -1,275 +1,305 @@
-import { useState, useEffect } from "react";
-import { 
-  Thermometer, 
-  Droplets, 
-  Shield, 
-  AlertTriangle, 
-  CheckCircle, 
-  TrendingUp,
+import { useEffect, useState } from "react";
+import { Link, Navigate } from "react-router-dom";
+import {
+  Activity,
+  ArrowUpRight,
+  Package,
   Bell,
-  FileText,
+  Package2,
+  Settings,
+  Search,
   Users,
-  Settings
+  Terminal,
 } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Progress } from "@/components/ui/progress";
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, AreaChart, Area } from "recharts";
-import Navigation from "@/components/Navigation";
-import Footer from "@/components/Footer";
-import { 
-  getDemoSensorReading, 
-  getDemoAlerts, 
-  getDemoTemperatureHistory, 
-  getDemoShelfLifeData, 
-  getDemoRecentActivity,
-  startDemoDataRefresh,
-  stopDemoDataRefresh
-} from "@/lib/demoData";
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Input } from "@/components/ui/input";
+import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import {
+  Avatar,
+  AvatarFallback,
+  AvatarImage,
+} from "@/components/ui/avatar";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Skeleton } from "@/components/ui/skeleton";
+import { useAuth } from "@/context/AuthContext";
+import { api } from "@/lib/apiService";
 
-const Dashboard = () => {
-  const [sensorData, setSensorData] = useState(() => getDemoSensorReading());
-  const [alerts] = useState(() => getDemoAlerts().slice(0, 3)); // Show latest 3 alerts
-  const [temperatureData] = useState(() => getDemoTemperatureHistory());
-  const [shelfLifeData] = useState(() => getDemoShelfLifeData());
-  const [recentActivity] = useState(() => getDemoRecentActivity().slice(0, 4)); // Show latest 4 activities
+// --- Data Types from Backend ---
 
-  // Simulate real-time updates
+interface UserDashboardStats {
+  total_products: number;
+  active_alerts: number;
+  safe_products: number;
+  quality_score_avg: number;
+}
+
+interface Product {
+  id: number;
+  name: string;
+  batch_number: string;
+  status: string;
+  current_temperature: number | null;
+  current_humidity: number | null;
+  expiry_date: string;
+}
+
+interface Alert {
+  id: number;
+  product_id: number;
+  alert_type: string;
+  severity: string;
+  message: string;
+  is_read: boolean;
+  created_at: string;
+}
+
+// --- Helper Functions ---
+
+const formatDate = (dateString: string | null) => {
+  if (!dateString) return "N/A";
+  return new Date(dateString).toLocaleDateString();
+};
+
+const getInitials = (name: string = "User") => {
+  return name.split(' ').map(n => n[0]).join('').toUpperCase();
+};
+
+// --- Main Component ---
+
+export function Dashboard() {
+  const { user, token } = useAuth();
+  
+  // Data states
+  const [stats, setStats] = useState<UserDashboardStats | null>(null);
+  const [products, setProducts] = useState<Product[]>([]);
+  const [alerts, setAlerts] = useState<Alert[]>([]);
+
+  // Loading and Error states
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
   useEffect(() => {
-    const intervalId = startDemoDataRefresh(() => {
-      setSensorData(getDemoSensorReading());
-    }, 3000); // Update every 3 seconds
+    // Only fetch data if user is logged in
+    if (token) {
+      const fetchAllData = async () => {
+        setIsLoading(true);
+        setError(null);
+        try {
+          // Fetch all data in parallel
+          const [statsData, productsData, alertsData] = await Promise.all([
+            api.get("/dashboard/"),
+            api.get("/monitoring/products"),
+            api.get("/alerts/"),
+          ]);
 
-    return () => stopDemoDataRefresh(intervalId);
-  }, []);
+          setStats(statsData);
+          setProducts(productsData);
+          setAlerts(alertsData);
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case "optimal": return "status-safe";
-      case "warning": return "status-warning"; 
-      case "critical": return "status-critical";
-      default: return "muted";
+        } catch (err: any) {
+          setError(err.message || "Failed to fetch dashboard data.");
+        } finally {
+          setIsLoading(false);
+        }
+      };
+      fetchAllData();
     }
-  };
+  }, [token]); // Re-run if token changes
 
-  const getAlertVariant = (type: string) => {
-    switch (type) {
-      case "critical": return "destructive";
-      case "warning": return "secondary";
-      default: return "outline";
-    }
-  };
+  // --- Auth Check ---
+  // If still loading auth, show skeleton
+  if (!token && !user) {
+    return <Skeleton className="h-screen w-full" />;
+  }
 
-  const getStorageCondition = (status: string) => {
-    switch (status) {
-      case "optimal": return "Optimal";
-      case "warning": return "Warning";
-      case "critical": return "Critical";
-      default: return "Unknown";
-    }
-  };
+  // If user is not logged in, redirect
+  if (!token) {
+    return <Navigate to="/login" replace />;
+  }
 
+  // --- Render Error State ---
+  if (error) {
+    return (
+      <div className="container mx-auto p-4">
+        <Alert variant="destructive">
+          <Terminal className="h-4 w-4" />
+          <AlertTitle>Error Fetching Data</AlertTitle>
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
+      </div>
+    );
+  }
+
+  // --- Render Loading State ---
+  if (isLoading) {
+    return (
+      <div className="container mx-auto p-4 space-y-4">
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+          <Skeleton className="h-32 w-full" />
+          <Skeleton className="h-32 w-full" />
+          <Skeleton className="h-32 w-full" />
+          <Skeleton className="h-32 w-full" />
+        </div>
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
+          <Skeleton className="h-96 w-full lg:col-span-4" />
+          <Skeleton className="h-96 w-full lg:col-span-3" />
+        </div>
+      </div>
+    );
+  }
+
+  // --- Render Main Content ---
   return (
-    <div className="min-h-screen bg-background">
-      <Navigation />
-      
-      <div className="container mx-auto px-4 py-8">
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold mb-2">Medicine Monitoring Dashboard</h1>
-          <p className="text-muted-foreground">Real-time pharmaceutical quality and safety monitoring</p>
-        </div>
-
-        {/* Alert Banner */}
-        {alerts.filter(alert => alert.type === 'critical').length > 0 && (
-          <div className="mb-6 p-4 bg-destructive/10 border border-destructive/20 rounded-lg animate-pulse-glow">
-            <div className="flex items-center space-x-2">
-              <AlertTriangle className="w-5 h-5 text-destructive" />
-              <span className="font-medium text-destructive">Critical Alert</span>
-              <span className="text-destructive/80">- Immediate attention required</span>
-            </div>
-          </div>
-        )}
-
-        {/* Real-time Monitoring Panel */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-          <Card className="border-border/50 hover:shadow-medium transition-shadow">
-            <CardHeader className="pb-2">
-              <CardTitle className="flex items-center text-lg">
-                <Thermometer className="w-5 h-5 mr-2 text-primary" />
-                Temperature
+    <div className="flex min-h-screen w-full flex-col">
+      <main className="flex flex-1 flex-col gap-4 p-4 md:gap-8 md:p-8">
+        <div className="grid gap-4 md:grid-cols-2 md:gap-8 lg:grid-cols-4">
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">
+                Total Products
               </CardTitle>
+              <Package className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-bold mb-2">{sensorData.temperature}°C</div>
-              <div className="flex items-center space-x-2">
-                <div className={`w-3 h-3 rounded-full bg-${getStatusColor(sensorData.status)}`}></div>
-                <span className="text-sm text-muted-foreground">Target: 2-8°C</span>
-              </div>
+              <div className="text-2xl font-bold">{stats?.total_products ?? 0}</div>
             </CardContent>
           </Card>
-
-          <Card className="border-border/50 hover:shadow-medium transition-shadow">
-            <CardHeader className="pb-2">
-              <CardTitle className="flex items-center text-lg">
-                <Droplets className="w-5 h-5 mr-2 text-accent" />
-                Humidity
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">
+                Active Alerts
               </CardTitle>
+              <Bell className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-bold mb-2">{sensorData.humidity}%</div>
-              <div className="flex items-center space-x-2">
-                <div className={`w-3 h-3 rounded-full bg-${getStatusColor(sensorData.status)}`}></div>
-                <span className="text-sm text-muted-foreground">Target: 40-60%</span>
-              </div>
+              <div className="text-2xl font-bold">{stats?.active_alerts ?? 0}</div>
             </CardContent>
           </Card>
-
-          <Card className="border-border/50 hover:shadow-medium transition-shadow">
-            <CardHeader className="pb-2">
-              <CardTitle className="flex items-center text-lg">
-                <Shield className="w-5 h-5 mr-2 text-secondary" />
-                Storage Status
-              </CardTitle>
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Safe Products</CardTitle>
+              <Package2 className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-bold mb-2">{getStorageCondition(sensorData.status)}</div>
-              <div className="flex items-center space-x-2">
-                <CheckCircle className="w-4 h-4 text-status-safe" />
-                <span className="text-sm text-muted-foreground">All systems operational</span>
+              <div className="text-2xl font-bold">{stats?.safe_products ?? 0}</div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">
+                Avg. Quality Score
+              </CardTitle>
+              <Activity className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">
+                {stats?.quality_score_avg?.toFixed(1) ?? 'N/A'}
               </div>
             </CardContent>
           </Card>
         </div>
-
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
-          {/* AI Predictions & Alerts */}
-          <Card className="lg:col-span-2 border-border/50">
-            <CardHeader>
-              <CardTitle className="flex items-center">
-                <TrendingUp className="w-5 h-5 mr-2 text-primary" />
-                AI Predictions & Alerts
-              </CardTitle>
+        <div className="grid gap-4 md:gap-8 lg:grid-cols-2 xl:grid-cols-3">
+          <Card className="xl:col-span-2">
+            <CardHeader className="flex flex-row items-center">
+              <div className="grid gap-2">
+                <CardTitle>My Products</CardTitle>
+                <CardDescription>
+                  Overview of all your monitored products.
+                </CardDescription>
+              </div>
+              <Button asChild size="sm" className="ml-auto gap-1">
+                <Link to="#">
+                  View All
+                  <ArrowUpRight className="h-4 w-4" />
+                </Link>
+              </Button>
             </CardHeader>
             <CardContent>
-              <div className="space-y-4">
-                <div className="p-4 bg-secondary/10 border border-secondary/20 rounded-lg">
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="font-medium text-secondary">Smart Anomaly Detection</span>
-                    <Badge variant="outline" className="text-secondary border-secondary">Active</Badge>
-                  </div>
-                  <p className="text-sm text-muted-foreground">AI model monitoring 1,247 medicine batches with 99.7% accuracy</p>
-                </div>
-                
-                <div className="space-y-2">
-                  <h4 className="font-medium">Recent Alerts</h4>
-                  {alerts.map(alert => (
-                    <div key={alert.id} className="flex items-center justify-between p-3 bg-muted/30 rounded-lg">
-                      <div className="flex items-center space-x-3">
-                        <AlertTriangle className={`w-4 h-4 ${alert.type === 'critical' ? 'text-destructive' : alert.type === 'warning' ? 'text-warning' : 'text-muted-foreground'}`} />
-                        <div>
-                          <p className="text-sm font-medium">{alert.message}</p>
-                          <p className="text-xs text-muted-foreground">{new Date(alert.timestamp).toLocaleTimeString()} ago</p>
-                        </div>
-                      </div>
-                      <Badge variant={getAlertVariant(alert.type)} className="text-xs">
-                        {alert.type}
-                      </Badge>
-                    </div>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Name</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Temp</TableHead>
+                    <TableHead>Humidity</TableHead>
+                    <TableHead>Batch</TableHead>
+                    <TableHead>Expiry</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {products.map((product) => (
+                    <TableRow key={product.id}>
+                      <TableCell>{product.name}</TableCell>
+                      <TableCell>
+                        <Badge variant={product.status.includes("Safe") ? "default" : "destructive"}>
+                          {product.status}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>{product.current_temperature?.toFixed(1) ?? 'N/A'}°C</TableCell>
+                      <TableCell>{product.current_humidity?.toFixed(1) ?? 'N/A'}%</TableCell>
+                      <TableCell>{product.batch_number}</TableCell>
+                      <TableCell>{formatDate(product.expiry_date)}</TableCell>
+                    </TableRow>
                   ))}
-                </div>
-              </div>
+                </TableBody>
+              </Table>
             </CardContent>
           </Card>
-
-          {/* Quick Actions */}
-          <Card className="border-border/50">
+          <Card>
             <CardHeader>
-              <CardTitle>Quick Actions</CardTitle>
+              <CardTitle>Recent Alerts</CardTitle>
+              <CardDescription>
+                Recent alerts from your monitoring system.
+              </CardDescription>
             </CardHeader>
-            <CardContent className="space-y-3">
-              <Button variant="outline" className="w-full justify-start">
-                <FileText className="w-4 h-4 mr-2" />
-                Report Issue
-              </Button>
-              <Button variant="outline" className="w-full justify-start">
-                <Users className="w-4 h-4 mr-2" />
-                Request Support
-              </Button>
-              <Button variant="outline" className="w-full justify-start">
-                <Bell className="w-4 h-4 mr-2" />
-                Configure Alerts
-              </Button>
-              <Button variant="outline" className="w-full justify-start">
-                <Settings className="w-4 h-4 mr-2" />
-                System Settings
-              </Button>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Charts Section */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-          <Card className="border-border/50">
-            <CardHeader>
-              <CardTitle>Temperature Trends (24h)</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <ResponsiveContainer width="100%" height={300}>
-                <LineChart data={temperatureData}>
-                  <CartesianGrid strokeDasharray="3 3" className="opacity-30" />
-                  <XAxis dataKey="time" />
-                  <YAxis />
-                  <Tooltip />
-                  <Line type="monotone" dataKey="temp" stroke="hsl(var(--primary))" strokeWidth={2} />
-                  <Line type="monotone" dataKey="predicted" stroke="hsl(var(--secondary))" strokeDasharray="5 5" />
-                </LineChart>
-              </ResponsiveContainer>
-            </CardContent>
-          </Card>
-
-          <Card className="border-border/50">
-            <CardHeader>
-              <CardTitle>Shelf Life Prediction</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <ResponsiveContainer width="100%" height={300}>
-                <AreaChart data={shelfLifeData}>
-                  <CartesianGrid strokeDasharray="3 3" className="opacity-30" />
-                  <XAxis dataKey="day" />
-                  <YAxis />
-                  <Tooltip />
-                  <Area type="monotone" dataKey="remaining" stackId="1" stroke="hsl(var(--secondary))" fill="hsl(var(--secondary) / 0.3)" />
-                  <Area type="monotone" dataKey="predicted" stackId="2" stroke="hsl(var(--accent))" fill="hsl(var(--accent) / 0.3)" strokeDasharray="5 5" />
-                </AreaChart>
-              </ResponsiveContainer>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Recent Activity */}
-        <Card className="border-border/50">
-          <CardHeader>
-            <CardTitle>Recent Activity</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              {recentActivity.map((activity, index) => (
-                <div key={index} className="flex items-center justify-between py-3 border-b border-border/30 last:border-0">
-                  <div>
-                    <p className="text-sm font-medium">{activity.action}</p>
-                    <p className="text-xs text-muted-foreground">by {activity.user} • {activity.time}</p>
+            <CardContent className="grid gap-8">
+              {alerts.slice(0, 5).map((alert) => ( // Show 5 most recent
+                <div key={alert.id} className="flex items-center gap-4">
+                  <Bell className="h-6 w-6 text-destructive" />
+                  <div className="grid gap-1">
+                    <p className="text-sm font-medium leading-none">
+                      {alert.alert_type.toUpperCase()} - {alert.severity}
+                    </p>
+                    <p className="text-sm text-muted-foreground">
+                      {alert.message}
+                    </p>
+                  </div>
+                  <div className="ml-auto text-xs text-muted-foreground">
+                    {formatDate(alert.created_at)}
                   </div>
                 </div>
               ))}
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      <Footer />
+              {alerts.length === 0 && (
+                <p className="text-sm text-muted-foreground">No recent alerts.</p>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+      </main>
     </div>
   );
-};
-
-export default Dashboard;
+}

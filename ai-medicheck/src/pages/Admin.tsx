@@ -1,237 +1,397 @@
-import { useState } from "react";
-import { 
-  Settings, 
-  Users, 
-  FileText, 
-  Activity, 
-  Server,
-  Plus,
-  Edit,
-  Trash2,
-  Download,
-  Eye
+import { useEffect, useState } from "react";
+import { Navigate } from "react-router-dom";
+import {
+  Bell,
+  Package2,
+  Users,
+  LineChart,
+  Package,
+  Settings,
+  Brain,
+  Search,
+  FlaskConical,
+  ShieldAlert,
+  FileText,
+  Terminal,
 } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Switch } from "@/components/ui/switch";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, AreaChart, Area } from "recharts";
-import Navigation from "@/components/Navigation";
-import Footer from "@/components/Footer";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from "@/components/ui/tabs";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Skeleton } from "@/components/ui/skeleton";
+import { useAuth } from "@/context/AuthContext";
+import { api } from "@/lib/apiService";
 
-const Admin = () => {
-  const [sensors] = useState([
-    { id: "TEMP-001", name: "Storage Unit A1", type: "Temperature", status: "Active", location: "Warehouse A", lastReading: "4.2°C" },
-    { id: "HUM-001", name: "Storage Unit A1", type: "Humidity", status: "Active", location: "Warehouse A", lastReading: "45%" },
-    { id: "TEMP-002", name: "Storage Unit B2", type: "Temperature", status: "Warning", location: "Warehouse B", lastReading: "8.1°C" },
-    { id: "HUM-002", name: "Storage Unit B2", type: "Humidity", status: "Active", location: "Warehouse B", lastReading: "52%" }
-  ]);
+// --- Data Types from Backend ---
 
-  const [users] = useState([
-    { id: 1, name: "Dr. Sarah Johnson", email: "sarah.johnson@pharma.com", role: "Quality Manager", status: "Active", lastLogin: "2 hours ago" },
-    { id: 2, name: "Mike Chen", email: "mike.chen@pharma.com", role: "System Admin", status: "Active", lastLogin: "30 mins ago" },
-    { id: 3, name: "Dr. Amanda Rodriguez", email: "amanda.r@pharma.com", role: "Compliance Officer", status: "Active", lastLogin: "1 day ago" },
-    { id: 4, name: "James Wilson", email: "james.wilson@pharma.com", role: "Operator", status: "Inactive", lastLogin: "5 days ago" }
-  ]);
-
-  const [systemLogs] = useState([
-    { timestamp: "2024-01-15 14:30:22", level: "INFO", source: "AI Engine", message: "Model training completed successfully" },
-    { timestamp: "2024-01-15 14:25:15", level: "WARNING", source: "Sensor Network", message: "Sensor TEMP-002 reporting high values" },
-    { timestamp: "2024-01-15 14:20:08", level: "INFO", source: "User Management", message: "User login: sarah.johnson@pharma.com" },
-    { timestamp: "2024-01-15 14:15:33", level: "ERROR", source: "Database", message: "Connection timeout resolved" },
-    { timestamp: "2024-01-15 14:10:44", level: "INFO", source: "Alert System", message: "Alert notification sent to 3 users" }
-  ]);
-
-  const systemMetrics = [
-    { time: '00:00', cpu: 45, memory: 62, disk: 78 },
-    { time: '04:00', cpu: 52, memory: 58, disk: 78 },
-    { time: '08:00', cpu: 68, memory: 71, disk: 79 },
-    { time: '12:00', cpu: 75, memory: 82, disk: 80 },
-    { time: '16:00', cpu: 58, memory: 67, disk: 81 },
-    { time: '20:00', cpu: 43, memory: 55, disk: 82 },
-    { time: '24:00', cpu: 38, memory: 48, disk: 82 }
-  ];
-
-  const getStatusVariant = (status: string) => {
-    switch (status.toLowerCase()) {
-      case "active": return "default";
-      case "warning": return "secondary";
-      case "inactive": 
-      case "error": return "destructive";
-      default: return "outline";
-    }
+interface DashboardStats {
+  total_users: number;
+  total_products: number;
+  total_alerts: number;
+  active_sensors: number;
+  system_uptime: string;
+  // These are from the README example
+  recent_audit_logs: AuditLog[];
+  ai_models_status: AIModel[];
+  system_metrics: {
+    avg_cpu_usage: number;
+    avg_memory_usage: number;
+    total_api_calls: number;
   };
+}
 
-  const getLogLevelColor = (level: string) => {
-    switch (level) {
-      case "ERROR": return "text-destructive";
-      case "WARNING": return "text-warning";
-      case "INFO": return "text-primary";
-      default: return "text-muted-foreground";
+interface User {
+  id: number;
+  email: string;
+  username: string;
+  company_name: string;
+  user_type: "admin" | "user";
+  is_active: boolean;
+  created_at: string;
+}
+
+interface AIModel {
+  id: number;
+  model_name: string;
+  model_type: string;
+  version: string;
+  accuracy: number | null;
+  status: string;
+  last_trained: string | null;
+}
+
+interface Sensor {
+  id: number;
+  sensor_id: string;
+  sensor_type: string;
+  location: string;
+  status: string;
+  calibration_date: string | null;
+}
+
+interface CounterfeitReport {
+  id: number;
+  product_id: number;
+  reporter_id: number;
+  confidence_score: number;
+  detection_method: string;
+  status: string;
+  created_at: string;
+}
+
+interface AuditLog {
+  id: number;
+  user_id: number;
+  action: string;
+  table_name: string | null;
+  record_id: number | null;
+  ip_address: string | null;
+  timestamp: string;
+}
+
+// --- Helper Functions ---
+
+const formatDate = (dateString: string | null) => {
+  if (!dateString) return "N/A";
+  return new Date(dateString).toLocaleString();
+};
+
+// --- Main Component ---
+
+export function Admin() {
+  const { user, token } = useAuth();
+  
+  // Data states
+  const [stats, setStats] = useState<DashboardStats | null>(null);
+  const [users, setUsers] = useState<User[]>([]);
+  const [models, setModels] = useState<AIModel[]>([]);
+  const [sensors, setSensors] = useState<Sensor[]>([]);
+  const [reports, setReports] = useState<CounterfeitReport[]>([]);
+  const [audits, setAudits] = useState<AuditLog[]>([]);
+
+  // Loading and Error states
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    // Only fetch data if user is an admin
+    if (user?.user_type === "admin") {
+      const fetchAllData = async () => {
+        setIsLoading(true);
+        setError(null);
+        try {
+          // Fetch all data in parallel
+          const [
+            statsData,
+            usersData,
+            modelsData,
+            sensorsData,
+            reportsData,
+            auditsData,
+          ] = await Promise.all([
+            api.get("/admin/dashboard/"),
+            api.get("/admin/users/"),
+            api.get("/admin/ai-models/"),
+            api.get("/admin/sensors/"),
+            api.get("/admin/counterfeit/reports"),
+            api.get("/admin/system/audit-logs"),
+          ]);
+
+          setStats(statsData);
+          setUsers(usersData);
+          setModels(modelsData);
+          setSensors(sensorsData);
+          setReports(reportsData);
+          setAudits(auditsData);
+
+        } catch (err: any) {
+          setError(err.message || "Failed to fetch admin data.");
+        } finally {
+          setIsLoading(false);
+        }
+      };
+      fetchAllData();
     }
-  };
+  }, [user]); // Re-run if user changes
 
-  return (
-    <div className="min-h-screen bg-background">
-      <Navigation />
-      
-      <div className="container mx-auto px-4 py-8">
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold mb-2">System Administration</h1>
-          <p className="text-muted-foreground">Manage sensors, users, and system configuration</p>
+  // --- Auth Check ---
+  // If still loading auth, show skeleton
+  if (!token && !user) {
+    return <Skeleton className="h-screen w-full" />;
+  }
+
+  // If user is not an admin, redirect
+  if (user?.user_type !== "admin") {
+    return <Navigate to="/login" replace />;
+  }
+  
+  // --- Render Error State ---
+  if (error) {
+    return (
+      <div className="container mx-auto p-4">
+        <Alert variant="destructive">
+          <Terminal className="h-4 w-4" />
+          <AlertTitle>Error Fetching Data</AlertTitle>
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
+      </div>
+    );
+  }
+
+  // --- Render Loading State ---
+  if (isLoading) {
+    return (
+      <div className="container mx-auto p-4 space-y-4">
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+          <Skeleton className="h-32 w-full" />
+          <Skeleton className="h-32 w-full" />
+          <Skeleton className="h-32 w-full" />
+          <Skeleton className="h-32 w-full" />
         </div>
+        <Skeleton className="h-96 w-full" />
+      </div>
+    );
+  }
 
-        <Tabs defaultValue="control" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-5">
-            <TabsTrigger value="control" className="flex items-center space-x-2">
-              <Settings className="w-4 h-4" />
-              <span>Control Panel</span>
-            </TabsTrigger>
-            <TabsTrigger value="users" className="flex items-center space-x-2">
-              <Users className="w-4 h-4" />
-              <span>User Management</span>
-            </TabsTrigger>
-            <TabsTrigger value="reports" className="flex items-center space-x-2">
-              <FileText className="w-4 h-4" />
-              <span>Reports</span>
-            </TabsTrigger>
-            <TabsTrigger value="logs" className="flex items-center space-x-2">
-              <Activity className="w-4 h-4" />
-              <span>System Logs</span>
-            </TabsTrigger>
-            <TabsTrigger value="metrics" className="flex items-center space-x-2">
-              <Server className="w-4 h-4" />
-              <span>System Metrics</span>
-            </TabsTrigger>
+  // --- Render Main Content ---
+  return (
+    <div className="flex min-h-screen w-full flex-col bg-muted/40">
+      <main className="flex flex-1 flex-col gap-4 p-4 md:gap-8 md:p-8">
+        <div className="grid gap-4 md:grid-cols-2 md:gap-8 lg:grid-cols-4">
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">
+                Total Users
+              </CardTitle>
+              <Users className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{stats?.total_users ?? 0}</div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">
+                Monitored Products
+              </CardTitle>
+              <Package className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{stats?.total_products ?? 0}</div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Active Sensors</CardTitle>
+              <FlaskConical className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{stats?.active_sensors ?? 0}</div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Total Alerts</CardTitle>
+              <Bell className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{stats?.total_alerts ?? 0}</div>
+            </CardContent>
+          </Card>
+        </div>
+        
+        <Tabs defaultValue="users">
+          <TabsList className="grid w-full grid-cols-3 md:grid-cols-6">
+            <TabsTrigger value="users">Users</TabsTrigger>
+            <TabsTrigger value="models">AI Models</TabsTrigger>
+            <TabsTrigger value="sensors">Sensors</TabsTrigger>
+            <TabsTrigger value="counterfeit">Counterfeit</TabsTrigger>
+            <TabsTrigger value="audits">Audit Logs</TabsTrigger>
+            <TabsTrigger value="system">System</TabsTrigger>
           </TabsList>
-
-          {/* Control Panel */}
-          <TabsContent value="control" className="space-y-6">
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              {/* Sensor Management */}
-              <Card className="border-border/50">
-                <CardHeader>
-                  <div className="flex justify-between items-center">
-                    <CardTitle className="flex items-center">
-                      <Activity className="w-5 h-5 mr-2 text-primary" />
-                      Sensor Management
-                    </CardTitle>
-                    <Button size="sm">
-                      <Plus className="w-4 h-4 mr-2" />
-                      Add Sensor
-                    </Button>
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-3">
-                    {sensors.map(sensor => (
-                      <div key={sensor.id} className="flex items-center justify-between p-3 bg-muted/30 rounded-lg">
-                        <div>
-                          <div className="font-medium">{sensor.name}</div>
-                          <div className="text-sm text-muted-foreground">{sensor.id} • {sensor.type}</div>
-                          <div className="text-xs text-muted-foreground">{sensor.location} • {sensor.lastReading}</div>
-                        </div>
-                        <div className="flex items-center space-x-2">
-                          <Badge variant={getStatusVariant(sensor.status)}>
-                            {sensor.status}
-                          </Badge>
-                          <Button size="sm" variant="outline">
-                            <Edit className="w-3 h-3" />
-                          </Button>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
-
-              {/* Alert Thresholds */}
-              <Card className="border-border/50">
-                <CardHeader>
-                  <CardTitle>Alert Thresholds</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="temp-min">Temperature Range (°C)</Label>
-                    <div className="flex space-x-2">
-                      <Input id="temp-min" placeholder="Min" value="2" />
-                      <Input id="temp-max" placeholder="Max" value="8" />
-                    </div>
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="humidity-min">Humidity Range (%)</Label>
-                    <div className="flex space-x-2">
-                      <Input id="humidity-min" placeholder="Min" value="40" />
-                      <Input id="humidity-max" placeholder="Max" value="60" />
-                    </div>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <Switch id="auto-alerts" defaultChecked />
-                    <Label htmlFor="auto-alerts">Enable automatic alerts</Label>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <Switch id="ai-predictions" defaultChecked />
-                    <Label htmlFor="ai-predictions">Enable AI predictions</Label>
-                  </div>
-                  <Button className="w-full">Save Configuration</Button>
-                </CardContent>
-              </Card>
-            </div>
-          </TabsContent>
-
-          {/* User Management */}
-          <TabsContent value="users" className="space-y-6">
-            <Card className="border-border/50">
+          
+          {/* Users Tab */}
+          <TabsContent value="users">
+            <Card>
               <CardHeader>
-                <div className="flex justify-between items-center">
-                  <CardTitle>User Management</CardTitle>
-                  <Button>
-                    <Plus className="w-4 h-4 mr-2" />
-                    Add User
-                  </Button>
-                </div>
+                <CardTitle>User Management</CardTitle>
               </CardHeader>
               <CardContent>
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Name</TableHead>
+                      <TableHead>Username</TableHead>
                       <TableHead>Email</TableHead>
+                      <TableHead>Company</TableHead>
                       <TableHead>Role</TableHead>
                       <TableHead>Status</TableHead>
-                      <TableHead>Last Login</TableHead>
-                      <TableHead>Actions</TableHead>
+                      <TableHead>Joined</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {users.map(user => (
+                    {users.map((user) => (
                       <TableRow key={user.id}>
-                        <TableCell className="font-medium">{user.name}</TableCell>
+                        <TableCell>{user.username}</TableCell>
                         <TableCell>{user.email}</TableCell>
+                        <TableCell>{user.company_name}</TableCell>
                         <TableCell>
-                          <Badge variant="outline">{user.role}</Badge>
-                        </TableCell>
-                        <TableCell>
-                          <Badge variant={getStatusVariant(user.status)}>
-                            {user.status}
+                          <Badge variant={user.user_type === "admin" ? "destructive" : "outline"}>
+                            {user.user_type}
                           </Badge>
                         </TableCell>
-                        <TableCell className="text-muted-foreground">{user.lastLogin}</TableCell>
                         <TableCell>
-                          <div className="flex space-x-2">
-                            <Button size="sm" variant="outline">
-                              <Edit className="w-3 h-3" />
-                            </Button>
-                            <Button size="sm" variant="outline">
-                              <Trash2 className="w-3 h-3" />
-                            </Button>
-                          </div>
+                          <Badge variant={user.is_active ? "default" : "secondary"}>
+                            {user.is_active ? "Active" : "Inactive"}
+                          </Badge>
                         </TableCell>
+                        <TableCell>{formatDate(user.created_at)}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </CardContent>
+            </Card>
+          </TabsContent>
+          
+          {/* AI Models Tab */}
+          <TabsContent value="models">
+            <Card>
+              <CardHeader>
+                <CardTitle>AI Model Management</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Model Name</TableHead>
+                      <TableHead>Type</TableHead>
+                      <TableHead>Version</TableHead>
+                      <TableHead>Accuracy</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Last Trained</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {models.map((model) => (
+                      <TableRow key={model.id}>
+                        <TableCell>{model.model_name}</TableCell>
+                        <TableCell>{model.model_type}</TableCell>
+                        <TableCell>{model.version}</TableCell>
+                        <TableCell>
+                          {model.accuracy ? `${model.accuracy.toFixed(2)}%` : "N/A"}
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant={model.status === "active" ? "default" : "secondary"}>
+                            {model.status}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>{formatDate(model.last_trained)}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </CardContent>
+            </Card>
+          </TabsContent>
+          
+          {/* Sensors Tab */}
+          <TabsContent value="sensors">
+            <Card>
+              <CardHeader>
+                <CardTitle>IoT Sensor Management</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Sensor ID</TableHead>
+                      <TableHead>Type</TableHead>
+                      <TableHead>Location</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Last Calibrated</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {sensors.map((sensor) => (
+                      <TableRow key={sensor.id}>
+                        <TableCell>{sensor.sensor_id}</TableCell>
+                        <TableCell>{sensor.sensor_type}</TableCell>
+                        <TableCell>{sensor.location}</TableCell>
+                        <TableCell>
+                          <Badge variant={sensor.status === "active" ? "default" : "secondary"}>
+                            {sensor.status}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>{formatDate(sensor.calibration_date)}</TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
@@ -240,225 +400,121 @@ const Admin = () => {
             </Card>
           </TabsContent>
 
-          {/* Reports */}
-          <TabsContent value="reports" className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              <Card className="border-border/50 hover:shadow-medium transition-shadow cursor-pointer">
-                <CardHeader>
-                  <CardTitle className="text-lg">Compliance Report</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-muted-foreground mb-4">Generate FDA/EMA compliance documentation</p>
-                  <div className="flex justify-between items-center">
-                    <span className="text-sm text-muted-foreground">Last generated: 2 days ago</span>
-                    <Button size="sm">
-                      <Download className="w-4 h-4 mr-2" />
-                      Generate
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card className="border-border/50 hover:shadow-medium transition-shadow cursor-pointer">
-                <CardHeader>
-                  <CardTitle className="text-lg">Quality Summary</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-muted-foreground mb-4">Weekly medicine quality analysis report</p>
-                  <div className="flex justify-between items-center">
-                    <span className="text-sm text-muted-foreground">Last generated: 1 week ago</span>
-                    <Button size="sm">
-                      <Download className="w-4 h-4 mr-2" />
-                      Generate
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card className="border-border/50 hover:shadow-medium transition-shadow cursor-pointer">
-                <CardHeader>
-                  <CardTitle className="text-lg">Sensor Performance</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-muted-foreground mb-4">Monthly sensor accuracy and uptime report</p>
-                  <div className="flex justify-between items-center">
-                    <span className="text-sm text-muted-foreground">Last generated: 3 days ago</span>
-                    <Button size="sm">
-                      <Download className="w-4 h-4 mr-2" />
-                      Generate
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card className="border-border/50 hover:shadow-medium transition-shadow cursor-pointer">
-                <CardHeader>
-                  <CardTitle className="text-lg">Alert Analysis</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-muted-foreground mb-4">Analysis of system alerts and responses</p>
-                  <div className="flex justify-between items-center">
-                    <span className="text-sm text-muted-foreground">Last generated: 1 day ago</span>
-                    <Button size="sm">
-                      <Download className="w-4 h-4 mr-2" />
-                      Generate
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card className="border-border/50 hover:shadow-medium transition-shadow cursor-pointer">
-                <CardHeader>
-                  <CardTitle className="text-lg">Batch Tracking</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-muted-foreground mb-4">Complete batch lifecycle tracking report</p>
-                  <div className="flex justify-between items-center">
-                    <span className="text-sm text-muted-foreground">Last generated: 5 hours ago</span>
-                    <Button size="sm">
-                      <Download className="w-4 h-4 mr-2" />
-                      Generate
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card className="border-border/50 hover:shadow-medium transition-shadow cursor-pointer">
-                <CardHeader>
-                  <CardTitle className="text-lg">Custom Report</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-muted-foreground mb-4">Create custom reports with specific parameters</p>
-                  <div className="flex justify-between items-center">
-                    <Button size="sm" variant="outline">
-                      <Plus className="w-4 h-4 mr-2" />
-                      Create
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-          </TabsContent>
-
-          {/* System Logs */}
-          <TabsContent value="logs" className="space-y-6">
-            <Card className="border-border/50">
+          {/* Counterfeit Reports Tab */}
+          <TabsContent value="counterfeit">
+            <Card>
               <CardHeader>
-                <div className="flex justify-between items-center">
-                  <CardTitle>System Logs</CardTitle>
-                  <div className="flex space-x-2">
-                    <Select defaultValue="all">
-                      <SelectTrigger className="w-32">
-                        <SelectValue placeholder="Filter" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">All Levels</SelectItem>
-                        <SelectItem value="error">Errors</SelectItem>
-                        <SelectItem value="warning">Warnings</SelectItem>
-                        <SelectItem value="info">Info</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <Button size="sm" variant="outline">
-                      <Eye className="w-4 h-4 mr-2" />
-                      View All
-                    </Button>
-                  </div>
-                </div>
+                <CardTitle>Counterfeit Reports</CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="space-y-2 font-mono text-sm">
-                  {systemLogs.map((log, index) => (
-                    <div key={index} className="p-3 bg-muted/30 rounded border-l-4 border-l-muted">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center space-x-4">
-                          <span className="text-muted-foreground">{log.timestamp}</span>
-                          <Badge variant="outline" className={getLogLevelColor(log.level)}>
-                            {log.level}
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Report ID</TableHead>
+                      <TableHead>Product ID</TableHead>
+                      <TableHead>Method</TableHead>
+                      <TableHead>Confidence</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Reported At</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {reports.map((report) => (
+                      <TableRow key={report.id}>
+                        <TableCell>{report.id}</TableCell>
+                        <TableCell>{report.product_id}</TableCell>
+                        <TableCell>{report.detection_method}</TableCell>
+                        <TableCell>{report.confidence_score.toFixed(2)}%</TableCell>
+                        <TableCell>
+                          <Badge variant={report.status === "pending" ? "outline" : "default"}>
+                            {report.status}
                           </Badge>
-                          <span className="text-primary">{log.source}</span>
-                        </div>
-                      </div>
-                      <div className="mt-1 text-foreground">{log.message}</div>
-                    </div>
-                  ))}
-                </div>
+                        </TableCell>
+                        <TableCell>{formatDate(report.created_at)}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
               </CardContent>
             </Card>
           </TabsContent>
 
-          {/* System Metrics */}
-          <TabsContent value="metrics" className="space-y-6">
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
-              <Card className="border-border/50">
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-lg">Server Health</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-3xl font-bold text-status-safe mb-2">Excellent</div>
-                  <p className="text-sm text-muted-foreground">All systems operational</p>
-                </CardContent>
-              </Card>
-
-              <Card className="border-border/50">
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-lg">Active Sensors</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-3xl font-bold mb-2">247</div>
-                  <p className="text-sm text-muted-foreground">3 sensors in warning state</p>
-                </CardContent>
-              </Card>
-
-              <Card className="border-border/50">
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-lg">Data Processing</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-3xl font-bold mb-2">1.2M</div>
-                  <p className="text-sm text-muted-foreground">Records processed today</p>
-                </CardContent>
-              </Card>
-            </div>
-
-            <Card className="border-border/50">
+          {/* Audit Logs Tab */}
+          <TabsContent value="audits">
+            <Card>
               <CardHeader>
-                <CardTitle>System Performance (24h)</CardTitle>
+                <CardTitle>System Audit Logs</CardTitle>
               </CardHeader>
               <CardContent>
-                <ResponsiveContainer width="100%" height={300}>
-                  <AreaChart data={systemMetrics}>
-                    <CartesianGrid strokeDasharray="3 3" className="opacity-30" />
-                    <XAxis dataKey="time" />
-                    <YAxis />
-                    <Tooltip />
-                    <Area type="monotone" dataKey="cpu" stackId="1" stroke="hsl(var(--primary))" fill="hsl(var(--primary) / 0.3)" />
-                    <Area type="monotone" dataKey="memory" stackId="2" stroke="hsl(var(--secondary))" fill="hsl(var(--secondary) / 0.3)" />
-                    <Area type="monotone" dataKey="disk" stackId="3" stroke="hsl(var(--accent))" fill="hsl(var(--accent) / 0.3)" />
-                  </AreaChart>
-                </ResponsiveContainer>
-                <div className="flex justify-center space-x-6 mt-4 text-sm">
-                  <div className="flex items-center space-x-2">
-                    <div className="w-3 h-3 bg-primary rounded-full"></div>
-                    <span>CPU Usage</span>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <div className="w-3 h-3 bg-secondary rounded-full"></div>
-                    <span>Memory Usage</span>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <div className="w-3 h-3 bg-accent rounded-full"></div>
-                    <span>Disk Usage</span>
-                  </div>
-                </div>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Log ID</TableHead>
+                      <TableHead>User ID</TableHead>
+                      <TableHead>Action</TableHead>
+                      <TableHead>Table</TableHead>
+                      <TableHead>IP Address</TableHead>
+                      <TableHead>Timestamp</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {audits.map((log) => (
+                      <TableRow key={log.id}>
+                        <TableCell>{log.id}</TableCell>
+                        <TableCell>{log.user_id}</TableCell>
+                        <TableCell>{log.action}</TableCell>
+                        <TableCell>{log.table_name ?? "N/A"}</TableCell>
+                        <TableCell>{log.ip_address ?? "N/A"}</TableCell>
+                        <TableCell>{formatDate(log.timestamp)}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
               </CardContent>
             </Card>
           </TabsContent>
-        </Tabs>
-      </div>
 
-      <Footer />
+          {/* System Tab */}
+          <TabsContent value="system">
+            <Card>
+              <CardHeader>
+                <CardTitle>System Health</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <Card>
+                    <CardHeader className="pb-2">
+                      <CardDescription>Avg. CPU Usage</CardDescription>
+                      <CardTitle className="text-3xl">
+                        {stats?.system_metrics?.avg_cpu_usage?.toFixed(1) ?? "N/A"}%
+                      </CardTitle>
+                    </CardHeader>
+                  </Card>
+                  <Card>
+                    <CardHeader className="pb-2">
+                      <CardDescription>Avg. Memory Usage</CardDescription>
+                      <CardTitle className="text-3xl">
+                        {stats?.system_metrics?.avg_memory_usage?.toFixed(1) ?? "N/A"}%
+                      </CardTitle>
+                    </CardHeader>
+                  </Card>
+                  <Card>
+                    <CardHeader className="pb-2">
+                      <CardDescription>System Uptime</CardDescription>
+                      <CardTitle className="text-3xl">
+                        {stats?.system_uptime ?? "N/A"}
+                      </CardTitle>
+                    </CardHeader>
+                  </Card>
+                </div>
+                <Button variant="outline">Run System Health Check</Button>
+                <Button variant="destructive">Trigger System Backup</Button>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+        </Tabs>
+      </main>
     </div>
   );
-};
-
-export default Admin;
+}
