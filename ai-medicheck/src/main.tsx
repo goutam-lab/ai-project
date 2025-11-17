@@ -1,16 +1,18 @@
 import React from 'react'
 import ReactDOM from 'react-dom/client'
-import App from './App.tsx'
+// --- NEW: Import BrowserRouter ---
+import { BrowserRouter } from 'react-router-dom'
+import App from './App' // Your App.tsx file
 import './index.css'
-import { ThemeProvider } from '@/components/ui/theme-provider.tsx' // ⬅️ This import will now work
-import { AuthProvider } from './context/AuthContext.tsx'
+import { ThemeProvider } from '@/components/ui/theme-provider'
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
-    <ThemeProvider defaultTheme="dark" storageKey="vite-ui-theme">
-      <AuthProvider>
+    {/* --- NEW: Wrap your entire app in BrowserRouter --- */}
+    <BrowserRouter>
+      <ThemeProvider defaultTheme="dark" storageKey="vite-ui-theme">
         <App />
-      </AuthProvider>
-    </ThemeProvider>
+      </ThemeProvider>
+    </BrowserRouter>
   </React.StrictMode>,
 )
