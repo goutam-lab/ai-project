@@ -4,7 +4,7 @@ import { api } from "../lib/apiService";
 interface AuthContextType {
   token: string | null;
   user: { username: string; email: string; user_type: string } | null;
-  login: (formData: FormData) => Promise<void>;
+  login: (formData: URLSearchParams) => Promise<{ user_type: string }>; // Updated return type
   logout: () => void;
   isLoading: boolean;
 }
@@ -33,7 +33,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     fetchUser();
   }, [token]);
 
-  const login = async (formData: FormData) => {
+  const login = async (formData: URLSearchParams) => { 
     // Call the special login endpoint
     const data = await api.login(formData);
     
@@ -43,6 +43,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     
     // Set user data
     setUser(data.user);
+
+    return data.user; // <-- THIS IS THE ADDITION
   };
 
   const logout = () => {

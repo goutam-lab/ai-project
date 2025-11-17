@@ -5,7 +5,8 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import Index from "./pages/Index";
 import { Dashboard } from "./pages/Dashboard";
-import { Admin } from './pages/Admin'; // ⬅️ CORRECT (with curly braces)
+import Admin from './pages/Admin';
+import { Login } from './pages/Login'; // ⬅️ 1. IMPORT THE LOGIN PAGE
 import About from "./pages/About";
 import HowItWorks from "./pages/HowItWorks";
 import Contact from "./pages/Contact";
@@ -21,6 +22,7 @@ const App = () => (
       <BrowserRouter>
         <Routes>
           <Route path="/" element={<Index />} />
+          <Route path="/login" element={<Login />} /> {/* ⬅️ 2. ADD THE LOGIN ROUTE */}
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/admin" element={<Admin />} />
           <Route path="/about" element={<About />} />

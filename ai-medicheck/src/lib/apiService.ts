@@ -58,12 +58,18 @@ export const api = {
   put: (endpoint: string, body: Record<string, any>) => apiService(endpoint, "PUT", body),
   del: (endpoint: string) => apiService(endpoint, "DELETE"),
   
-  // Special login handler (doesn't send token)
-  login: async (formData: FormData) => {
-    // FastAPI's OAuth2PasswordRequestForm expects form-data
+  // --- THIS IS THE FIX ---
+  // Updated to handle URLSearchParams as requested by AuthContext
+  login: async (formData: URLSearchParams) => {
+    
+    // FastAPI's OAuth2PasswordRequestForm also accepts this content type
+    const headers = new Headers();
+    headers.append("Content-Type", "application/x-www-form-urlencoded");
+
     const response = await fetch(`${API_URL}/users/login`, {
         method: "POST",
-        body: formData,
+        headers: headers, // Use the new headers
+        body: formData,     // Send URLSearchParams directly
     });
 
     if (!response.ok) {
