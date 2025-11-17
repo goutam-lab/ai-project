@@ -16,7 +16,8 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Terminal } from "lucide-react";
 
 export function Login() {
-  const [username, setUsername] = useState("admin@medicheck.com"); 
+  // --- FIX 1: Use the correct email from your create_admin_user.py ---
+  const [username, setUsername] = useState("admin@medicinesystem.com");
   const [password, setPassword] = useState("Admin@123");
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -30,17 +31,15 @@ export function Login() {
     setIsLoading(true);
 
     try {
-      // --- THIS IS THE FIX ---
-      // Create URLSearchParams as required by your AuthContext
       const formData = new URLSearchParams();
       formData.append("username", username);
       formData.append("password", password);
 
-      // We get the user object back from our modified login function
-      const user = await auth.login(formData);
+      // --- FIX 2: The auth.login() returns the WHOLE response ---
+      const loginResponse = await auth.login(formData);
 
-      // Now we can check the user type and navigate intelligently
-      if (user.user_type === "admin") {
+      // Now we check the user_type directly on the response
+      if (loginResponse.user_type === "admin") {
         navigate("/admin");
       } else {
         navigate("/dashboard");
