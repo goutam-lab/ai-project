@@ -1,3 +1,5 @@
+// ai-medicheck/src/pages/AdminSensors.tsx
+
 import React from 'react';
 
 export default function AdminSensors() {

@@ -1,4 +1,4 @@
-// Create this new file: ai-medicheck/src/components/AdminLayout.tsx
+// ai-medicheck/src/components/AdminLayout.tsx
 
 import { Link, Outlet } from "react-router-dom";
 import {
@@ -7,7 +7,6 @@ import {
   Package2,
   Users,
   Settings,
-  Users2,
   AlertTriangle,
   FileText,
   Thermometer,

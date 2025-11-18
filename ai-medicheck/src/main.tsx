@@ -10,9 +10,10 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
     {/* --- NEW: Wrap your entire app in BrowserRouter --- */}
     <BrowserRouter>
-      <ThemeProvider defaultTheme="dark" storageKey="vite-ui-theme">
-        <App />
-      </ThemeProvider>
-    </BrowserRouter>
+  <ThemeProvider>
+    <App />
+  </ThemeProvider>
+</BrowserRouter>
+
   </React.StrictMode>,
 )

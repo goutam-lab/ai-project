@@ -1,3 +1,5 @@
+// ai-medicheck/src/pages/AdminUsers.tsx
+
 import React, { useEffect, useState } from 'react';
 import { api } from '@/lib/apiService';
 import { Skeleton } from '@/components/ui/skeleton';

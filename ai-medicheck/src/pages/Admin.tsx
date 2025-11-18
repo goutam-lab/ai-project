@@ -1,4 +1,4 @@
-// Replace the code in ai-medicheck/src/pages/Admin.tsx with this:
+// ai-medicheck/src/pages/Admin.tsx
 
 import { useEffect, useState } from "react";
 import { Navigate } from "react-router-dom";
@@ -239,6 +239,3 @@ export default function AdminDashboardPage() {
     </>
   );
 }
-
-// NOTE: All AdminSidebar and AdminHeader functions have been removed
-// They now live in AdminLayout.tsx

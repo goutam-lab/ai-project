@@ -1,22 +1,24 @@
 import React from 'react';
-import { Outlet } from 'react-router-dom';
+import { Outlet, useLocation } from 'react-router-dom';
 import Navigation from '@/components/Navigation';
 import Footer from '@/components/Footer';
 
-/**
- * This component provides a consistent layout for all public-facing pages.
- * It renders the main navigation, the page content (via <Outlet />),
- * and the footer.
- */
 export default function PublicLayout() {
+  const { pathname } = useLocation();
+
+  // Check if this is an admin route
+  const isAdminRoute = pathname.startsWith("/admin");
+
   return (
     <div className="flex flex-col min-h-screen">
-      <Navigation />
+      {/* Hide navbar & footer for admin pages */}
+      {!isAdminRoute && <Navigation />}
+
       <main className="flex-grow">
-        {/* Outlet renders the child page (Index, About, Contact, etc.) */}
         <Outlet />
       </main>
-      <Footer />
+
+      {!isAdminRoute && <Footer />}
     </div>
   );
 }

@@ -1,3 +1,5 @@
+// ai-medicheck/src/pages/AdminModels.tsx
+
 import React from 'react';
 
 export default function AdminModels() {

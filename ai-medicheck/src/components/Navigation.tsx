@@ -7,6 +7,11 @@ const Navigation = () => {
   const [isOpen, setIsOpen] = useState(false);
   const location = useLocation();
 
+  // 🚀 FIX: DO NOT SHOW NAVBAR FOR ANY ADMIN ROUTE
+  if (location.pathname.startsWith("/admin")) {
+    return null;   // <-- This single line solves your double navbar issue permanently
+  }
+
   const navLinks = [
     { href: "/", label: "Home", icon: Activity },
     { href: "/dashboard", label: "Dashboard", icon: Shield },
