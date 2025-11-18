@@ -5,7 +5,7 @@ import { AuthProvider } from "@/context/AuthContext";
 
 // --- Layout Imports ---
 import PublicLayout from "@/components/PublicLayout";
-import AdminLayout from "@/components/AdminLayout"; // <-- Admin layout
+import AdminLayout from "@/components/AdminLayout";
 
 // --- Public Page Imports ---
 import Index from "@/pages/Index";
@@ -16,45 +16,52 @@ import Contact from "@/pages/Contact";
 // --- Auth & App Page Imports ---
 import { Login } from "@/pages/Login";
 import { Dashboard } from "@/pages/Dashboard";
-import AdminDashboardPage from "@/pages/Admin"; // <-- Renamed for clarity
+import AdminDashboardPage from "@/pages/Admin"; 
 
 // --- Admin Page Imports ---
 import AdminUsers from "@/pages/AdminUsers";
 import AdminProducts from "@/pages/AdminProducts";
 import AdminSensors from "@/pages/AdminSensors";
 import AdminModels from "@/pages/AdminModels";
-import NotFound from "@/pages/NotFound"; // (Assuming you have this)
+import NotFound from "@/pages/NotFound"; 
+
+// --- NEW: Import the Chatbot ---
+import AIMedicineBot from "@/components/AIMedicineBot";
 
 function AppRoutes() {
   return (
-    <Routes>
-      {/* --- Public Routes (with Nav/Footer) --- */}
-      <Route element={<PublicLayout />}>
-        <Route path="/" element={<Index />} />
-        <Route path="/about" element={<About />} />
-        <Route path="/how-it-works" element={<HowItWorks />} />
-        <Route path="/contact" element={<Contact />} />
-      </Route>
-
-      {/* --- Auth/App Routes (no main Nav/Footer) --- */}
-      <Route path="/login" element={<Login />} />
-      <Route path="/dashboard" element={<Dashboard />} />
-      
-      {/* --- ADMIN ROUTES --- */}
-      {/* This renders the AdminLayout, and the <Outlet />
-        inside it renders one of the child routes.
+    <>
+      {/* Render the Bot globally. 
+         It will float on top of all other routes.
       */}
-      <Route path="/admin" element={<AdminLayout />}>
-        <Route index element={<AdminDashboardPage />} /> {/* Renders at /admin */}
-        <Route path="users" element={<AdminUsers />} /> {/* Renders at /admin/users */}
-        <Route path="products" element={<AdminProducts />} /> {/* Renders at /admin/products */}
-        <Route path="sensors" element={<AdminSensors />} /> {/* Renders at /admin/sensors */}
-        <Route path="models" element={<AdminModels />} /> {/* Renders at /admin/models */}
-      </Route>
+      <AIMedicineBot />
 
-      {/* --- Catch-all 404 Route --- */}
-      <Route path="*" element={<NotFound />} />
-    </Routes>
+      <Routes>
+        {/* --- Public Routes (with Nav/Footer) --- */}
+        <Route element={<PublicLayout />}>
+          <Route path="/" element={<Index />} />
+          <Route path="/about" element={<About />} />
+          <Route path="/how-it-works" element={<HowItWorks />} />
+          <Route path="/contact" element={<Contact />} />
+        </Route>
+
+        {/* --- Auth/App Routes (no main Nav/Footer) --- */}
+        <Route path="/login" element={<Login />} />
+        <Route path="/dashboard" element={<Dashboard />} />
+        
+        {/* --- ADMIN ROUTES --- */}
+        <Route path="/admin" element={<AdminLayout />}>
+          <Route index element={<AdminDashboardPage />} />
+          <Route path="users" element={<AdminUsers />} />
+          <Route path="products" element={<AdminProducts />} />
+          <Route path="sensors" element={<AdminSensors />} />
+          <Route path="models" element={<AdminModels />} />
+        </Route>
+
+        {/* --- Catch-all 404 Route --- */}
+        <Route path="*" element={<NotFound />} />
+      </Routes>
+    </>
   );
 }
 

@@ -24,33 +24,67 @@ class ImageAnalyzer:
     def analyze_packaging(self, image_path, product_name=None):
         """
         Analyze packaging image for potential counterfeits
+        Returns structure compatible with frontend PackagingAnalysisResult
         """
-        
         try:
             img = Image.open(image_path)
             
-            results = {
-                'image_quality': self._check_image_quality(img),
-                'color_analysis': self._analyze_colors(img),
-                'sharpness': self._check_sharpness(img),
-                'is_suspicious': False,
-                'confidence': 0
-            }
+            # 1. Run internal analysis helpers
+            quality = self._check_image_quality(img)
+            sharpness = self._check_sharpness(img)
             
-            # Compare with reference if available
+            # 2. Identify Defects
+            defects = []
+            if not quality.get('is_acceptable', True):
+                defects.append("Low Image Resolution")
+            if not sharpness.get('is_sharp', True):
+                defects.append("Blurry Text/Image")
+
+            # 3. Compare with reference (if available)
+            similarity_score = 0.0
             if product_name and product_name in self.reference_images:
-                similarity = self._compare_with_reference(
+                similarity_score = self._compare_with_reference(
                     img, 
                     self.reference_images[product_name]
                 )
-                results['similarity_score'] = similarity
-                results['is_suspicious'] = similarity < 0.7
-                results['confidence'] = abs(similarity - 0.7) * 100
+                if similarity_score < 0.7:
+                    defects.append("Logo/Design Mismatch")
             
-            return results
+            # 4. Determine Authenticity (Simple Logic)
+            # If there are defects or low similarity, mark as counterfeit
+            is_suspicious = len(defects) > 0
+            is_authentic = not is_suspicious
+
+            # 5. Calculate Scores for Frontend
+            # Normalize sharpness variance (approx >100 is good) to a 0-10 scale
+            raw_variance = sharpness.get('variance', 0)
+            text_clarity_score = min(float(raw_variance) / 50.0, 10.0)
+            
+            logo_match_percent = float(similarity_score * 100)
+
+            # 6. Construct Response MATCHING the React Interface
+            return {
+                "is_authentic": bool(is_authentic),
+                "message": "Packaging appears authentic." if is_authentic else "Potential counterfeit or quality issues detected.",
+                "details": {
+                    "defects_found": defects,
+                    "logo_match_percent": logo_match_percent,
+                    "text_clarity_score": text_clarity_score
+                }
+            }
             
         except Exception as e:
-            return {'error': str(e)}
+            # Return a safe failure response that won't crash the frontend
+            print(f"Analysis Error: {e}")
+            return {
+                "is_authentic": False,
+                "message": f"Analysis failed: {str(e)}",
+                "details": {
+                    "defects_found": ["System Error"],
+                    "logo_match_percent": 0.0,
+                    "text_clarity_score": 0.0
+                }
+            }
     
     def _check_image_quality(self, img):
         """Check basic image quality metrics"""
@@ -83,7 +117,7 @@ class ImageAnalyzer:
         
         return {
             'variance': float(variance),
-            'is_sharp': variance > 100
+            'is_sharp': bool(variance > 100)  # <-- THIS IS THE FIX
         }
     
     def _compare_with_reference(self, img1, img2):

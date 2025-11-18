@@ -1,3 +1,8 @@
+fastapi
+uvicorn
+sqlalchemy
+... (your other existing requirements)
+httpx
 annotated-types==0.7.0
 anyio==4.10.0
 appnope==0.1.4

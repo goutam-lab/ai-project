@@ -91,7 +91,7 @@ interface LabelValidationResult {
 interface PackagingAnalysisResult {
   is_authentic: boolean;
   message: string;
-  details: {
+  details?: { // <-- THIS IS THE FIX
     defects_found: string[];
     logo_match_percent: number;
     text_clarity_score: number;
@@ -660,24 +660,29 @@ function PackagingResultAlert({
       </AlertTitle>
       <AlertDescription>
         {result.message}
-        <ul className="mt-2 list-disc pl-5 text-sm">
-          <li>
-            Logo Match:{" "}
-            <strong>{result.details.logo_match_percent.toFixed(1)}%</strong>
-          </li>
-          <li>
-            Text Clarity:{" "}
-            <strong>
-              {result.details.text_clarity_score.toFixed(1)} / 10
-            </strong>
-          </li>
-          {result.details.defects_found.length > 0 && (
+        {/* --- THIS IS THE FIX --- */}
+        {/* Only render the <ul> if 'details' exists */}
+        {result.details && (
+          <ul className="mt-2 list-disc pl-5 text-sm">
             <li>
-              Defects:{" "}
-              <strong>{result.details.defects_found.join(", ")}</strong>
+              Logo Match:{" "}
+              <strong>{result.details.logo_match_percent.toFixed(1)}%</strong>
             </li>
-          )}
-        </ul>
+            <li>
+              Text Clarity:{" "}
+              <strong>
+                {result.details.text_clarity_score.toFixed(1)} / 10
+              </strong>
+            </li>
+            {result.details.defects_found.length > 0 && (
+              <li>
+                Defects:{" "}
+                <strong>{result.details.defects_found.join(", ")}</strong>
+              </li>
+            )}
+          </ul>
+        )}
+        {/* --- END OF FIX --- */}
       </AlertDescription>
     </Alert>
   );
