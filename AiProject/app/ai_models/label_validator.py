@@ -50,7 +50,12 @@ class LabelValidator:
         if not self._contains_manufacturer_info(label_text):
             results['missing_fields'].append('manufacturer')
         
-        results['is_valid'] = len(results['missing_fields']) == 0
+        # --- THIS IS THE FIX ---
+        # If any fields are missing, mark as invalid.
+        # This no longer overwrites the 'is_valid = False' from the expiry check.
+        if len(results['missing_fields']) > 0:
+            results['is_valid'] = False
+        # --- END OF FIX ---
         
         return results
     
