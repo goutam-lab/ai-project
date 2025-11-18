@@ -1,3 +1,5 @@
+// ai-medicheck/src/lib/demoData.ts
+
 // Demo data generation and simulation for the medicine monitoring system
 
 export interface SensorReading {
@@ -108,10 +110,24 @@ class DemoDataGenerator {
       'Antibiotic Suspension',
       'COVID-19 Vaccine',
       'Insulin Pen',
-      'Analgesic Tablets'
+      'Analgesic Tablets',
+      // Added more products below
+      'MediCheck Pro Solution',
+      'Cardiac Care 100mg',
+      'Bio-Synth Insulin',
+      'Medi-Vax Booster',
+      'Neuro-Calm 50mg',
+      'Opti-Vision Drops',
+      'Gastro-Relief Syrup',
+      'Dermo-Care Cream',
+      'Nano-Sensor Batch X',
+      'Prototype V2 Vaccine',
+      'Emergency Kit A',
+      'Saline Solution 500ml'
     ];
 
-    return Array.from({ length: 8 }, (_, i) => {
+    // Increased generation length to cover more products
+    return Array.from({ length: 20 }, (_, i) => {
       const manufacturingDate = new Date();
       manufacturingDate.setDate(manufacturingDate.getDate() - Math.random() * 180);
       
@@ -121,16 +137,18 @@ class DemoDataGenerator {
       const currentShelfLife = Math.round(60 + Math.random() * 40); // 60-100%
       const predictedShelfLife = Math.round(currentShelfLife - Math.random() * 15); // Slightly lower prediction
       
+      const medicineName = medicines[i % medicines.length];
+
       return {
         id: `BX2024-${String(i + 1).padStart(3, '0')}`,
-        name: `Batch #BX2024-${String(i + 1).padStart(3, '0')}`,
-        medicine: medicines[i],
+        name: `${medicineName} (Batch ${String(i + 1).padStart(3, '0')})`, // Added name to batch for clarity
+        medicine: medicineName,
         manufacturingDate,
         expiryDate,
         currentShelfLife,
         predictedShelfLife,
         status: currentShelfLife > 80 ? 'safe' : currentShelfLife > 60 ? 'warning' : 'critical',
-        storageLocation: `Warehouse ${['A', 'B', 'C'][Math.floor(Math.random() * 3)]}`
+        storageLocation: `Warehouse ${['A', 'B', 'C', 'D'][Math.floor(Math.random() * 4)]}`
       };
     });
   }

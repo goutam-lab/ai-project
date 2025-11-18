@@ -7,10 +7,8 @@ import {
   Package2,
   Users,
   Settings,
-  AlertTriangle,
-  FileText,
+  Cpu, // Kept for AI Models
   Thermometer,
-  Cpu,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -63,7 +61,7 @@ function AdminSidebar() {
         <div className="flex-1">
           <nav className="grid items-start px-2 text-sm font-medium lg:px-4">
             <Link
-              to="/admin" // <-- This is the dashboard page
+              to="/admin" 
               className="flex items-center gap-3 rounded-lg px-3 py-2 text-muted-foreground transition-all hover:text-primary"
             >
               <Home className="h-4 w-4" />
@@ -90,26 +88,15 @@ function AdminSidebar() {
               <Thermometer className="h-4 w-4" />
               Sensor Data
             </Link>
-            <Link
-              to="/admin/alerts"
-              className="flex items-center gap-3 rounded-lg px-3 py-2 text-muted-foreground transition-all hover:text-primary"
-            >
-              <AlertTriangle className="h-4 w-4" />
-              Alerts
-            </Link>
+            
+            {/* Alerts and System Logs removed as requested */}
+
             <Link
               to="/admin/models"
               className="flex items-center gap-3 rounded-lg px-3 py-2 text-muted-foreground transition-all hover:text-primary"
             >
               <Cpu className="h-4 w-4" />
               AI Models
-            </Link>
-            <Link
-              to="/admin/logs"
-              className="flex items-center gap-3 rounded-lg px-3 py-2 text-muted-foreground transition-all hover:text-primary"
-            >
-              <FileText className="h-4 w-4" />
-              System Logs
             </Link>
           </nav>
         </div>
@@ -160,7 +147,6 @@ function AdminHeader() {
               <Home className="h-5 w-5" />
               Dashboard
             </Link>
-            {/* Add other mobile links here */}
             <Link to="/admin/users" className="flex items-center gap-3 rounded-lg px-3 py-2 text-muted-foreground transition-all hover:text-primary">
               <Users className="h-5 w-5" />
               Users
@@ -169,7 +155,10 @@ function AdminHeader() {
               <Package className="h-5 w-5" />
               Products
             </Link>
-            {/*... add all other links ...*/}
+             <Link to="/admin/models" className="flex items-center gap-3 rounded-lg px-3 py-2 text-muted-foreground transition-all hover:text-primary">
+              <Cpu className="h-5 w-5" />
+              AI Models
+            </Link>
           </nav>
         </SheetContent>
       </Sheet>
