@@ -40,7 +40,7 @@ export default function AIMedicineBot() {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ 
                     messages: [...messages, userMessage],
-                    model: "mistral-small-latest" 
+                    // FIX: Removed 'model: "mistral-small-latest"' to rely on the backend's OpenRouter default model
                 }),
             });
 
@@ -193,4 +193,4 @@ export default function AIMedicineBot() {
             </AnimatePresence>
         </>
     );
-}   
+}

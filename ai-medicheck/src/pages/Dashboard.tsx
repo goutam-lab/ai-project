@@ -4,6 +4,8 @@ import React, { useEffect, useState } from "react";
 import { Navigate } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
 import { api } from "@/lib/apiService";
+// Add import for demo data
+import { getDemoBatches, BatchInfo } from "@/lib/demoData"; // ADDED
 
 // --- UI Components ---
 import Navigation from "@/components/Navigation"; // For the top navbar
@@ -51,11 +53,20 @@ import {
 // --- Data Interfaces ---
 
 interface Product {
-  id: number;
+  id: string; // MODIFIED: Changed from number to string for demo data compatibility
   name: string;
   batch_number: string;
   status: string;
 }
+
+// --- Data Mapping Function --- // ADDED
+const mapBatchToProduct = (batch: BatchInfo): Product => ({
+  id: batch.id,
+  name: batch.medicine, // Using 'medicine' from BatchInfo as 'name'
+  batch_number: batch.id, // Using the Batch ID as the batch_number
+  status: batch.status,
+});
+// --- END Data Mapping Function ---
 
 // --- AI Model Interfaces ---
 
@@ -143,12 +154,25 @@ export function Dashboard() {
   useEffect(() => {
     // This effect runs once the user is confirmed to be logged in
     if (token && user) {
+      setIsProductsLoading(true); // Ensure loading is set before fetch starts
       api
         .get("/dashboard/products/summary") // <-- Corrected path
-        .then(setProducts)
-        .catch((err) =>
-          setError(err.message || "Failed to fetch products."),
-        )
+        .then((productsFromApi) => { // MODIFIED: Check response before setting products
+          if (productsFromApi && Array.isArray(productsFromApi) && productsFromApi.length > 0) {
+            setProducts(productsFromApi as Product[]);
+          } else {
+            // Fallback to demo data if API returns empty array or null/undefined
+            console.warn("API returned no products or an empty array. Using demo data as fallback.");
+            const demoProducts = getDemoBatches().map(mapBatchToProduct);
+            setProducts(demoProducts);
+          }
+        })
+        .catch((err) => { // MODIFIED: Use demo data as a robust fallback on API error
+          console.error("API Error fetching products:", err);
+          setError(err.message || "Failed to fetch products. Loading demo data instead.");
+          const demoProducts = getDemoBatches().map(mapBatchToProduct);
+          setProducts(demoProducts);
+        })
         .finally(() => setIsProductsLoading(false));
     }
   }, [token, user]); // Runs when auth status is confirmed
@@ -412,11 +436,28 @@ function ProductList({
   products: Product[];
   isLoading: boolean;
   onSelect: (product: Product) => void;
-  selectedProductId?: number;
+  selectedProductId?: string; // MODIFIED: Changed from number to string
 }) {
   if (isLoading) {
     return <Skeleton className="h-[400px] w-full" />;
   }
+  
+  // ADDED: Handle case where products list is empty
+  if (products.length === 0) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>Your Products</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <p className="text-center text-muted-foreground p-4">
+            No products found. Please check API connection.
+          </p>
+        </CardContent>
+      </Card>
+    );
+  }
+
   return (
     <Card>
       <CardHeader>

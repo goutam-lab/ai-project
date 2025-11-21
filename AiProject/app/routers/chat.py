@@ -1,8 +1,8 @@
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 from typing import List, Optional
-from decouple import config  # <--- CHANGED: Uses your project's config loader
-import httpx
+from decouple import config
+from openai import AsyncOpenAI, APIConnectionError, APIStatusError # <--- UPDATED IMPORT
 import logging
 
 # Initialize router
@@ -23,26 +23,28 @@ class Message(BaseModel):
 
 class ChatRequest(BaseModel):
     messages: List[Message]
-    model: Optional[str] = "mistral-small-latest" 
+    # CRITICAL FIX: Set the correct new model as the default
+    model: Optional[str] = "openrouter/sherlock-dash-alpha" 
 
-# Configuration
-# We use config(default=None) to prevent crashing if key is missing, 
-# allowing us to return a proper HTTP error instead.
-MISTRAL_API_KEY = config("MISTRAL_API_KEY", default=None)
-MISTRAL_API_URL = "https://api.mistral.ai/v1/chat/completions"
+# Configuration - Updated for OpenRouter
+OPENROUTER_API_KEY = config("OPENROUTER_API_KEY", default=None) # <--- New Key Name
+OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1" 
+# Optional headers for OpenRouter policy compliance
+OPENROUTER_REFERER = config("OPENROUTER_REFERER", default="http://localhost") 
+OPENROUTER_TITLE = config("OPENROUTER_TITLE", default="MediCheck AI")
 
 @router.post("/completions")
 async def chat_completions(request: ChatRequest):
     """
-    Endpoint to interact with Mistral AI for medical assistance.
+    Endpoint to interact with OpenRouter AI for medical assistance.
     """
     # 1. Debugging: Check if key is loaded
-    if not MISTRAL_API_KEY:
-        logger.error("MISTRAL_API_KEY is not set in .env file.")
+    if not OPENROUTER_API_KEY:
+        logger.error("OPENROUTER_API_KEY is not set in .env file.")
         raise HTTPException(status_code=500, detail="Server configuration error: API Key missing.")
 
     try:
-        # 2. Prepare the system prompt
+        # 2. Prepare the system prompt (content remains the same)
         system_prompt = {
             "role": "system",
             "content": (
@@ -59,49 +61,54 @@ async def chat_completions(request: ChatRequest):
             )
         }
 
-        # 3. Construct the message history
+        # 3. Construct the message history (logic remains the same)
         client_messages = [msg.dict() for msg in request.messages if msg.role != "system"]
         final_messages = [system_prompt] + client_messages
 
-        # 4. Payload for Mistral
-        payload = {
-            "model": request.model,
-            "messages": final_messages,
-            "temperature": 0.7,
-            "max_tokens": 500,
-            "safe_prompt": True 
-        }
+        # 4. Initialize OpenAI Client, configured for OpenRouter
+        client = AsyncOpenAI(
+            base_url=OPENROUTER_BASE_URL,
+            api_key=OPENROUTER_API_KEY,
+            timeout=30.0 # Set request timeout
+        )
 
-        headers = {
-            "Authorization": f"Bearer {MISTRAL_API_KEY}",
-            "Content-Type": "application/json",
-            "Accept": "application/json"
-        }
+        # 5. Call OpenRouter API asynchronously
+        completion = await client.chat.completions.create(
+            model=request.model,
+            messages=final_messages,
+            temperature=0.7,
+            max_tokens=500,
+            # Pass OpenRouter specific headers
+            extra_headers={
+                "HTTP-Referer": OPENROUTER_REFERER, 
+                "X-Title": OPENROUTER_TITLE,
+            },
+            # Note: 'safe_prompt' is removed as it is Mistral-specific
+        )
 
-        # 5. Call Mistral API asynchronously
-        async with httpx.AsyncClient(timeout=30.0) as client:
-            response = await client.post(MISTRAL_API_URL, json=payload, headers=headers)
-            
-            if response.status_code != 200:
-                error_detail = response.text
-                logger.error(f"Mistral API Error: {error_detail}")
-                raise HTTPException(
-                    status_code=response.status_code, 
-                    detail=f"AI Provider Error: {response.status_code}"
-                )
+        # 6. Process response
+        if not completion.choices:
+            raise HTTPException(status_code=502, detail="Invalid response from AI provider (no choices)")
 
-            data = response.json()
-            
-            if "choices" not in data or not data["choices"]:
-                 raise HTTPException(status_code=502, detail="Invalid response from AI provider")
+        bot_content = completion.choices[0].message.content
+        
+        return {"role": "assistant", "content": bot_content}
 
-            bot_content = data["choices"][0]["message"]["content"]
-            
-            return {"role": "assistant", "content": bot_content}
-
-    except httpx.RequestError as e:
-        logger.error(f"Network Error communicating with Mistral: {str(e)}")
+    # Handle Network/Connection Errors
+    except APIConnectionError as e:
+        logger.error(f"Network Error communicating with OpenRouter: {str(e)}")
         raise HTTPException(status_code=503, detail="Service unavailable: Could not connect to AI provider.")
+    
+    # Handle API Status Errors
+    except APIStatusError as e:
+        logger.error(f"OpenRouter API Error: {e.status_code} - {e.response.text}")
+        status_code_to_return = e.status_code if isinstance(e.status_code, int) and e.status_code >= 400 else 500
+        raise HTTPException(
+            status_code=status_code_to_return, 
+            detail=f"AI Provider Error: {e.status_code}"
+        )
+        
+    # Handle all other exceptions
     except Exception as e:
         logger.error(f"Chat Endpoint Internal Error: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
